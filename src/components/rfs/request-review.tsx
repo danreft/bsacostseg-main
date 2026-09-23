@@ -73,7 +73,7 @@ export function RequestReview({ client, additional, service, documents, informat
   return <form onSubmit={(event) => { event.preventDefault(); onSubmit(); }}>
     <fieldset disabled={submitting} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} aria-busy={submitting}>
     <p className="supporting-copy">Review your information before submitting. Select Edit to make changes.</p>
-    <ReviewSection title="Authorized Representative" step={1} onEdit={onEdit}>
+    <ReviewSection title="Contact Information" step={1} onEdit={onEdit}>
       <h3>Authorized Representative</h3>
       <Summary rows={contactRows(client)} />
       <h3>Legal Owner / Entity</h3>

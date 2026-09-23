@@ -28,6 +28,12 @@ export function RequestProgress({ steps, currentStepId }: RequestProgressProps) 
           </li>
         ))}
       </ol>
+      <div className="progress-status">
+        <div className="progress-track" aria-hidden="true">
+          <div className="progress-fill" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }} />
+        </div>
+        <span className="step-count">Step {currentIndex + 1} of {steps.length}</span>
+      </div>
     </nav>
   );
 }

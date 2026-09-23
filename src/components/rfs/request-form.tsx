@@ -11,7 +11,7 @@ import { ServiceDetails, emptyServiceDetails, type ServiceDetailsValue, type Sup
 import { submitRfs } from "../../app/actions/submit-rfs";
 
 const steps = [
-  { id: "contact", label: "Authorized Representative" },
+  { id: "contact", label: "Contact Information" },
   { id: "service", label: "Service Details" },
   { id: "additional", label: "Additional Information" },
   { id: "review", label: "Review" },
@@ -129,8 +129,12 @@ export function RequestForm() {
 
   return <RequestShell steps={steps} currentStepId={steps[step - 1].id} headingId="request-heading">
     <div className="step-heading">
-      <h2 id="request-heading" ref={headingRef} tabIndex={-1}>{steps[step - 1].label}</h2>
-      <p className="step-count">Step {step} of 4</p>
+      <h2 id="request-heading" ref={headingRef} tabIndex={-1}>{[
+        "Ownership / Authorized Representative Information & Business Details",
+        "Property & Acquisition Information",
+        "Communication Preferences",
+        "Final Verification & Submission",
+      ][step - 1]}</h2>
     </div>
     {error && <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>{error}</p>}
     {submitted && <div role="status">

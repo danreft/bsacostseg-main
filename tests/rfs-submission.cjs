@@ -73,7 +73,7 @@ assert.throws(() => mapSubmission(null));
       assert.deepEqual(JSON.parse(options.body), { payload: mapped });
       return Response.json(id);
     };
-    assert.deepEqual(await submitRfs(input), { success: true, submissionId: id });
+    assert.deepEqual(await submitRfs(input), { success: true, submissionId: id, documentsFailed: 0 });
     assert.equal(calls, 1);
     global.fetch = async () => new Response('PRIVATE DATABASE ERROR', { status: 500 });
     const failure = await submitRfs(input);

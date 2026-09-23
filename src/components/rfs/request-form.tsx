@@ -9,6 +9,7 @@ import { RequestShell } from "./request-shell";
 import { ServiceDetails, emptyServiceDetails, type ServiceDetailsValue, type SupportingDocuments } from "./service-details";
 
 import { submitRfs } from "../../app/actions/submit-rfs";
+import { documentValidationError } from "../../lib/rfs/documents";
 
 const steps = [
   { id: "contact", label: "Contact Information" },
@@ -38,6 +39,7 @@ export function RequestForm() {
   const setAdditional = path === "existing" ? setExistingAdditional : setNewAdditional;
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [documentsFailed, setDocumentsFailed] = useState(false);
   const submissionLock = useRef(false);
   const [error, setError] = useState("");
   const formStepsRef = useRef<HTMLDivElement>(null);
@@ -97,15 +99,22 @@ export function RequestForm() {
       }
     }
     if (!path) return;
+    for (const file of Object.values(documents)) {
+      if (!file) continue;
+      const fileError = documentValidationError(file);
+      if (fileError) { setError(fileError); setStep(2); return; }
+    }
     submissionLock.current = true;
     setSubmitting(true);
     setError("");
     startTransition(async () => {
       try {
+        const files = new FormData();
+        for (const [category, file] of Object.entries(documents)) if (file) files.append(category, file);
         const result = await submitRfs({ path, submittingFor, client,
           additional: additionalRequired || hasAdditional ? additional : null,
-          service: serviceDetails, information: additionalInformation });
-        if (result.success) setSubmitted(true);
+          service: serviceDetails, information: additionalInformation }, files);
+        if (result.success) { setDocumentsFailed(result.documentsFailed > 0); setSubmitted(true); }
         else setError(result.error);
       } catch {
         setError("We couldn't confirm your submission. Your information has been kept. Please try again.");
@@ -138,8 +147,7 @@ export function RequestForm() {
     </div>
     {error && <p className="form-error" role="alert" tabIndex={-1} ref={errorRef}>{error}</p>}
     {submitted && <div role="status">
-      <p>Your request was submitted successfully.</p>
-      <p className="supporting-copy">Selected documents have not been uploaded or saved.</p>
+      <p>{documentsFailed ? "Your request was received, but one or more documents could not be saved. Please contact our team for help providing these documents." : "Your request was submitted successfully."}</p>
     </div>}
     <div ref={formStepsRef} hidden={submitted}>
     <div data-rfs-step="2" hidden={step !== 2}><ServiceDetails value={serviceDetails} onChange={setServiceDetails}

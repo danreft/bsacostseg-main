@@ -11,7 +11,7 @@ Apply `supabase/migrations/20260922014351_submit_rfs.sql` after the existing fou
 - `rfs_properties`: property name, address, city, state, county, ZIP, and numeric acres.
 - `rfs_acquisitions`: acquired yes/no → `acquired`/`in_progress`; acquisition/closing date; purchase price stripped of commas and passed as an exact decimal for Postgres numeric; allocation `not-sure` → `not_sure`.
 - `rfs_additional_information`: referral source, conditional code or partner name, CPA company, filing timing, details, and communication method. Inapplicable/empty optional fields become null. Communication choice is now required to match the schema.
-- All child rows use the returned parent ID. No `rfs_documents` rows or Storage objects are created. Selected files remain in frontend memory.
+- All child rows use the returned parent ID. After the atomic RPC succeeds, selected documents are uploaded and linked through `rfs_documents` (see below).
 
 ## Local setup and verification
 
@@ -19,8 +19,42 @@ Apply `supabase/migrations/20260922014351_submit_rfs.sql` after the existing fou
 2. Copy `.env.example` to `.env.local` and supply `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY` (the server secret beginning with `sb_secret_`). Never give the secret a `NEXT_PUBLIC_` prefix or commit `.env.local`.
 3. Restart `npm run dev`. Complete one request using clearly labeled POC TEST data, then click Submit Request. Confirm the success message and inspect the parent and child rows in Supabase. The Server Action response contains `submissionId`.
 
-Local checks: `npm run typecheck` and `node tests/rfs-submission.cjs`. The latter covers mapping, validation, and mocked server success/failure; it makes no live writes. No live submission or database-function execution was tested during implementation because the local URL and secret were missing.
+Document checks: `npm run typecheck` and `node tests/rfs-documents.cjs`. Both passed during document-persistence implementation. The document checks mock native fetch and cover rejection before the RPC, optional documents, upload and metadata payloads, safe unique paths, upload/network/metadata/timeout failures, and continuing with remaining files.
+
+## Document persistence
+
+Apply the new `supabase/migrations/20260923161510_create_rfs_documents_bucket.sql`. It creates/configures the private `rfs-documents` bucket with a 5 MiB object limit and grants metadata INSERT only to `service_role`. It adds no anonymous Storage policies and leaves RLS and previous migrations unchanged. SQL bucket creation follows the [Supabase bucket documentation](https://supabase.com/docs/guides/storage/buckets/creating-buckets).
+
+From the repository root, review the pending migrations first:
+
+```sh
+supabase db push --linked --dry-run --skip-vault
+```
+
+If the pending list is correct, apply it:
+
+```sh
+supabase db push --linked --skip-vault
+```
+
+If prior migrations were executed manually in SQL Editor, reconcile migration history before pushing; do not reapply existing table/function migrations. Alternatively, run only the new bucket migration in SQL Editor using the project's existing manual convention.
+
+Restart the Next.js dev server to pick up `next.config.ts`, then run:
+
+```sh
+npm run test:e2e -- tests/e2e/rfs-happy-path.spec.ts
+```
+
+The existing happy path now selects `tests/e2e/fixtures/property-appraisal.pdf` as Property Appraisal and checks the original success message. On September 23, 2026, a server-side read-only check returned `Bucket not found`; the migration was not applied remotely and the live Playwright run was therefore not attempted. No live submission/document identifiers were generated for this change.
+
+The server action validates all documents before creating the RFS, then uploads each file to `rfs-documents/{rfs_submission_id}/{document_category}/{randomUUID}.{lowercase_extension}`. Only allowlisted categories and generated names enter the path; the original filename is retained in metadata. UI categories map to `purchase_agreement`, `property_appraisal`, `existing_purchase_price_allocation`, `fixed_asset_equipment_list`, and `other`.
+
+Each successful upload is followed by a metadata insert containing the RFS ID, category, original filename, Storage path, MIME type derived from the supported extension, byte size, and `processing_status = pending`. No document processing or retrieval URLs are added. All privileged requests use the server-only secret.
+
+Validation accepts the existing PDF, DOC/DOCX, XLS/XLSX, PPT/PPTX, CSV, TXT, RTF, ODT, and ODS extensions. Empty files, unsupported extensions, files over 5 MiB, unknown categories, and duplicate categories are rejected. Documents remain optional, with at most one per category. Extension validation is not content inspection; no parsing is performed. Change `MAX_DOCUMENT_BYTES` in `src/lib/rfs/documents.ts`, the bucket limit in a new migration, and the Next.js body limit together. The 26 MiB action limit accommodates five 5 MiB files plus form overhead.
+
+Uploads and metadata errors are isolated per file. The RFS stays created, remaining documents are attempted, and the response reports `documentsFailed`. The UI acknowledges receipt and reports document failures, keeps files in state, and prevents another submission of the created request. Server diagnostics contain the RFS ID, category, generated path, operation stage, HTTP status when available, and error type; raw service errors and secrets are not returned to users. A metadata failure can leave a private object without metadata; the logged path supports manual investigation. No deletion or automatic retry is attempted, including after ambiguous timeouts.
 
 ## Limits
 
-Temporary inline success only; no Thank You route or external redirect. No document persistence, drafts, authentication, lookup, or Save for Later. Duplicate clicks are blocked while pending and after success in this mounted form. There is no cross-session deduplication: if the database commits but its response is lost, retrying can create another complete submission. No automatic retries or workflow infrastructure were added.
+Temporary inline success only; no Thank You route or external redirect. No AI, drafts, authentication, lookup, or Save for Later. Duplicate clicks are blocked throughout document persistence and after full or partial success in this mounted form. There is no cross-session deduplication: if the database commits but its response is lost, retrying can create another complete submission. No automatic retries or workflow infrastructure were added.

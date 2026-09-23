@@ -1,3 +1,5 @@
+import { DOCUMENT_ACCEPT, MAX_DOCUMENT_BYTES } from "../../lib/rfs/documents";
+
 export type ServiceDetailsValue = {
   propertyName: string;
   address: string;
@@ -25,7 +27,7 @@ export const documentCategories = [
   { id: "other", label: "Other Supporting Documents" },
 ] as const;
 
-// Files stay with this request's in-memory state; category IDs remain stable for future storage.
+// Files remain in memory until final submission sends them to the server action.
 export type SupportingDocuments = Partial<Record<typeof documentCategories[number]["id"], File>>;
 
 const propertyFields = [
@@ -124,7 +126,7 @@ export function ServiceDetails({ value, onChange, documents, onDocumentsChange, 
       <h2 id="supporting-documents-heading">Supporting Documents</h2>
       <p className="supporting-copy">Upload any documents you have related to the acquisition. Providing these documents can help us evaluate the property and reduce follow-up questions.</p>
       <p className="supporting-copy">Don&apos;t have all of these available? That&apos;s okay. Upload what you have and our team can request anything else that&apos;s needed.</p>
-      <p id="documents-note" className="supporting-copy">All documents are optional. Files are selected for this preview only and are not uploaded or saved.</p>
+      <p id="documents-note" className="supporting-copy">All documents are optional. Files are saved when you submit your request. Maximum {MAX_DOCUMENT_BYTES / 1024 / 1024} MB per file.</p>
       <div className="document-list">
         {documentCategories.map((category) => {
           const file = documents[category.id];
@@ -133,7 +135,7 @@ export function ServiceDetails({ value, onChange, documents, onDocumentsChange, 
             <label htmlFor={id}>{category.label} (optional){file && <span className="sr-only"> — replace selected file</span>}</label>
             <div className="document-picker">
               <span aria-hidden="true">{file ? "Replace file" : "Choose file"}</span>
-              <input id={id} name={id} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.rtf,.odt,.ods"
+              <input id={id} name={id} type="file" accept={DOCUMENT_ACCEPT}
               aria-describedby={`documents-note ${id}-selected`}
               onChange={(event) => {
                 const selected = event.target.files?.[0];

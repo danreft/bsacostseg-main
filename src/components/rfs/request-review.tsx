@@ -97,7 +97,7 @@ export function RequestReview({ client, additional, service, documents, informat
         ["Existing Purchase Price Allocation", service.existingAllocation ? { yes: "Yes", no: "No", "not-sure": "Not Sure" }[service.existingAllocation] : ""],
       ]} />
       <h3>Supporting Documents</h3>
-      <p className="supporting-copy">Selected files will not be uploaded or saved with this POC submission.</p>
+      <p className="supporting-copy">Selected files will be saved with your request when you submit.</p>
       {selectedDocuments.length ? <Summary rows={selectedDocuments.map((category) => [category.label, documents[category.id]!.name])} />
         : <p className="supporting-copy">No supporting documents selected.</p>}
     </ReviewSection>
